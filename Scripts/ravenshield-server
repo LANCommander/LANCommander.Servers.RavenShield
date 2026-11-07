@@ -1,0 +1,38 @@
+#!/bin/sh
+# Start the Raven Shield dedicated server (START_EXE).
+#
+# Runs `UCC.exe server [-mod=<RVS_MOD>] -servercfg=<ini> -port=<RVS_PORT> log=server.log` from
+# system/ under Wine. Server settings, passwords and the map rotation live in the server ini (see
+# the 30-ConfigureRavenShield hook); the server starts on its first map. Any START_ARGS are
+# appended.
+set -e
+
+root="${SERVER_ROOT:-/config/Merged}"
+
+# The retail install uses a lowercase system/; accept either
+system=""
+for d in system System; do
+    if [ -f "$root/$d/UCC.exe" ]; then system="$root/$d"; break; fi
+done
+if [ -z "$system" ]; then
+    echo "system/UCC.exe not found in $root. Put a Raven Shield install in /config/Server." >&2
+    exit 1
+fi
+
+mod="${RVS_MOD:-RavenShield}"
+
+# Same default as the 30-ConfigureRavenShield hook
+ini="${RVS_SERVER_INI:-LANCommander-$mod.ini}"
+
+set -- "-servercfg=$ini" "-port=${RVS_PORT:-7777}" log=server.log "$@"
+# The base game is the default; only add-ons need -mod
+case "$(printf '%s' "$mod" | tr '[:upper:]' '[:lower:]')" in
+    ravenshield) ;;
+    *) set -- "-mod=$mod" "$@" ;;
+esac
+
+echo "Starting: UCC.exe server $*"
+
+# UCC resolves packages, mods and -servercfg relative to its working directory
+export WINE_WORKDIR="$system"
+exec wine-run UCC.exe server "$@"
